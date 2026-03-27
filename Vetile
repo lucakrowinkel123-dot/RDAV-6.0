@@ -895,7 +895,7 @@ void ResolveAndForwardTarget()
 {
     TargetPacket packet;
     bool hasPacket = targetSourceMode == TargetSourceMode.Remote
-        ? TryGetSelectedRemotePacket(out packet)
+        ? TryGetRemotePacket(out packet)
         : TryGetLocalPacket(out packet);
 
     if (!hasPacket)
@@ -944,6 +944,14 @@ bool TryGetLocalPacket(out TargetPacket packet)
     return true;
 }
 
+bool TryGetRemotePacket(out TargetPacket packet)
+{
+    packet = BuildNoTargetPacket();
+    if (TryGetSelectedRemotePacket(out packet))
+        return true;
+    return TryGetBestAvailableRemotePacket(out packet);
+}
+
 bool TryGetSelectedRemotePacket(out TargetPacket packet)
 {
     packet = BuildNoTargetPacket();
@@ -963,6 +971,35 @@ bool TryGetSelectedRemotePacket(out TargetPacket packet)
 
     packet = state.LastPacket;
     return true;
+}
+
+bool TryGetBestAvailableRemotePacket(out TargetPacket packet)
+{
+    packet = BuildNoTargetPacket();
+    double freshestAge = double.MaxValue;
+
+    for (int i = 0; i < remoteSourceOrder.Count; i++)
+    {
+        string key = remoteSourceOrder[i];
+        RemoteSourceState state;
+        if (!remoteSources.TryGetValue(key, out state) || !state.HasPacket)
+            continue;
+
+        double age = elapsedSeconds - state.LastReceivedAt;
+        if (age > REMOTE_TARGET_STALE_SECONDS)
+            continue;
+
+        if (!state.LastPacket.HasTarget)
+            continue;
+
+        if (age < freshestAge)
+        {
+            freshestAge = age;
+            packet = state.LastPacket;
+        }
+    }
+
+    return freshestAge < double.MaxValue;
 }
 
 TargetPacket BuildNoTargetPacket()

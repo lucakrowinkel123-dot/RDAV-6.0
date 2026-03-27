@@ -1400,9 +1400,9 @@
           GuiRefreshCounter = 0;
 
           TrackingDisplay.RuntimeAgs runtimeAgs = new TrackingDisplay.RuntimeAgs();
-          runtimeAgs.ReferenceLocation = ExternalFeedActive ? ExternalSourcePosition : RC.GetPosition();
-          runtimeAgs.ReferenceForwards = ExternalFeedActive && ExternalSourceForward.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceForward) : RC.WorldMatrix.Forward;
-          runtimeAgs.ReferenceUpwards = ExternalFeedActive && ExternalSourceUp.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceUp) : RC.WorldMatrix.Up;
+          runtimeAgs.ReferenceLocation = ExternalFeedHasTarget ? ExternalSourcePosition : RC.GetPosition();
+          runtimeAgs.ReferenceForwards = ExternalFeedHasTarget && ExternalSourceForward.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceForward) : RC.WorldMatrix.Forward;
+          runtimeAgs.ReferenceUpwards = ExternalFeedHasTarget && ExternalSourceUp.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceUp) : RC.WorldMatrix.Up;
           runtimeAgs.TargetLock = HasTarget;
           runtimeAgs.Targetmode = "RDAR";
           runtimeAgs.Targetinfoline1 = ThisTracker.GetLine1Info();
