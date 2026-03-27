@@ -73,6 +73,7 @@
   int GuiRefreshCounter = 0;
   const int GuiRefreshIntervalTicks = 15; //redraw every other tick to reduce UI overhead
   const string ExternalTargetPacketHeader = "VTARGET";
+  bool ExternalFeedActive = false;
   bool ExternalFeedHasTarget = false;
   Vector3D ExternalTargetPosition = Vector3D.Zero;
   Vector3D ExternalTargetVelocity = Vector3D.Zero;
@@ -1267,6 +1268,7 @@
       }
 
       ExternalFeedHasTarget = hasTargetInt == 1;
+      ExternalFeedActive = true;
       ExternalTargetPosition = new Vector3D(tx, ty, tz);
       ExternalTargetVelocity = new Vector3D(tvx, tvy, tvz);
       ExternalSourcePosition = new Vector3D(sx, sy, sz);
@@ -1398,10 +1400,9 @@
           GuiRefreshCounter = 0;
 
           TrackingDisplay.RuntimeAgs runtimeAgs = new TrackingDisplay.RuntimeAgs();
-          bool hasExternalFeed = !string.IsNullOrWhiteSpace(ExternalSourceName) && ExternalSourceName != "none";
-          runtimeAgs.ReferenceLocation = hasExternalFeed ? ExternalSourcePosition : RC.GetPosition();
-          runtimeAgs.ReferenceForwards = hasExternalFeed && ExternalSourceForward.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceForward) : RC.WorldMatrix.Forward;
-          runtimeAgs.ReferenceUpwards = hasExternalFeed && ExternalSourceUp.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceUp) : RC.WorldMatrix.Up;
+          runtimeAgs.ReferenceLocation = ExternalFeedHasTarget ? ExternalSourcePosition : RC.GetPosition();
+          runtimeAgs.ReferenceForwards = ExternalFeedHasTarget && ExternalSourceForward.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceForward) : RC.WorldMatrix.Forward;
+          runtimeAgs.ReferenceUpwards = ExternalFeedHasTarget && ExternalSourceUp.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceUp) : RC.WorldMatrix.Up;
           runtimeAgs.TargetLock = HasTarget;
           runtimeAgs.Targetmode = "RDAR";
           runtimeAgs.Targetinfoline1 = ThisTracker.GetLine1Info();
