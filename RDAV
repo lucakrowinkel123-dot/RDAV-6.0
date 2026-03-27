@@ -73,6 +73,7 @@
   int GuiRefreshCounter = 0;
   const int GuiRefreshIntervalTicks = 15; //redraw every other tick to reduce UI overhead
   const string ExternalTargetPacketHeader = "VTARGET";
+  bool ExternalFeedActive = false;
   bool ExternalFeedHasTarget = false;
   Vector3D ExternalTargetPosition = Vector3D.Zero;
   Vector3D ExternalTargetVelocity = Vector3D.Zero;
@@ -1267,6 +1268,7 @@
       }
 
       ExternalFeedHasTarget = hasTargetInt == 1;
+      ExternalFeedActive = true;
       ExternalTargetPosition = new Vector3D(tx, ty, tz);
       ExternalTargetVelocity = new Vector3D(tvx, tvy, tvz);
       ExternalSourcePosition = new Vector3D(sx, sy, sz);

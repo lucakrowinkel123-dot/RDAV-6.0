@@ -190,7 +190,7 @@ public void Main(string argument, UpdateType updateSource)
         }
         else if (argument.Equals("source cycle", StringComparison.OrdinalIgnoreCase))
         {
-            targetSourceMode = targetSourceMode == TargetSourceMode.Local ? TargetSourceMode.Remote : TargetSourceMode.Local;
+            CycleSourceSelection();
         }
         else if (argument.Equals("remote list", StringComparison.OrdinalIgnoreCase))
         {
@@ -970,7 +970,7 @@ bool TryGetSelectedRemotePacket(out TargetPacket packet)
         return false;
 
     packet = state.LastPacket;
-    return packet.HasTarget;
+    return true;
 }
 
 bool TryGetBestAvailableRemotePacket(out TargetPacket packet)
@@ -1048,6 +1048,30 @@ void SelectNextRemote()
     if (remoteSourceOrder.Count == 0)
         return;
     selectedRemoteIndex = (selectedRemoteIndex + 1) % remoteSourceOrder.Count;
+}
+
+void CycleSourceSelection()
+{
+    if (targetSourceMode == TargetSourceMode.Local)
+    {
+        targetSourceMode = TargetSourceMode.Remote;
+        if (remoteSourceOrder.Count > 0 && (selectedRemoteIndex < 0 || selectedRemoteIndex >= remoteSourceOrder.Count))
+            selectedRemoteIndex = 0;
+        return;
+    }
+
+    if (remoteSourceOrder.Count == 0)
+    {
+        targetSourceMode = TargetSourceMode.Local;
+        return;
+    }
+
+    selectedRemoteIndex++;
+    if (selectedRemoteIndex >= remoteSourceOrder.Count)
+    {
+        selectedRemoteIndex = 0;
+        targetSourceMode = TargetSourceMode.Local;
+    }
 }
 
 void SelectRemoteByName(string name)
@@ -1184,6 +1208,7 @@ void EchoSummary()
 {
     Echo("Rotor Projection Finisher (Multi-Tag)");
     Echo($"Target feed: {targetSourceMode} | source={activeTargetPacket.SourceName} | id={(activeTargetPacket.HasTarget ? activeTargetPacket.TargetId.ToString() : RDAV_STATUS_NONE)} | dist={(activeTargetDistanceMeters >= 0 ? activeTargetDistanceMeters.ToString("0") + "m" : "-")}");
+    Echo($"Remote selection: {(remoteSourceOrder.Count > 0 ? GetSelectedRemoteNameOrDefault() : "none")} ({remoteSourceOrder.Count} known)");
 
     for (int i = 0; i < TAGS.Length; i++)
     {
