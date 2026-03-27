@@ -77,6 +77,8 @@
   Vector3D ExternalTargetPosition = Vector3D.Zero;
   Vector3D ExternalTargetVelocity = Vector3D.Zero;
   Vector3D ExternalSourcePosition = Vector3D.Zero;
+  Vector3D ExternalSourceForward = Vector3D.Forward;
+  Vector3D ExternalSourceUp = Vector3D.Up;
   string ExternalSourceName = "none";
   long ExternalTargetId = 0;
 
@@ -1240,6 +1242,7 @@
 
       int hasTargetInt = 0;
       double tx = 0, ty = 0, tz = 0, tvx = 0, tvy = 0, tvz = 0, sx = 0, sy = 0, sz = 0;
+      double sfx = 0, sfy = 0, sfz = 1, sux = 0, suy = 1, suz = 0;
       long parsedTargetId = 0;
 
       int.TryParse(parts[2], out hasTargetInt);
@@ -1253,11 +1256,22 @@
       double.TryParse(parts[10], out sy);
       double.TryParse(parts[11], out sz);
       long.TryParse(parts[12], out parsedTargetId);
+      if (parts.Length >= 21)
+      {
+          double.TryParse(parts[15], out sfx);
+          double.TryParse(parts[16], out sfy);
+          double.TryParse(parts[17], out sfz);
+          double.TryParse(parts[18], out sux);
+          double.TryParse(parts[19], out suy);
+          double.TryParse(parts[20], out suz);
+      }
 
       ExternalFeedHasTarget = hasTargetInt == 1;
       ExternalTargetPosition = new Vector3D(tx, ty, tz);
       ExternalTargetVelocity = new Vector3D(tvx, tvy, tvz);
       ExternalSourcePosition = new Vector3D(sx, sy, sz);
+      ExternalSourceForward = new Vector3D(sfx, sfy, sfz);
+      ExternalSourceUp = new Vector3D(sux, suy, suz);
       ExternalTargetId = parsedTargetId;
       ExternalSourceName = parts[13];
       return true;
@@ -1385,8 +1399,8 @@
 
           TrackingDisplay.RuntimeAgs runtimeAgs = new TrackingDisplay.RuntimeAgs();
           runtimeAgs.ReferenceLocation = ExternalFeedHasTarget ? ExternalSourcePosition : RC.GetPosition();
-          runtimeAgs.ReferenceForwards = RC.WorldMatrix.Forward;
-          runtimeAgs.ReferenceUpwards = RC.WorldMatrix.Up;
+          runtimeAgs.ReferenceForwards = ExternalFeedHasTarget && ExternalSourceForward.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceForward) : RC.WorldMatrix.Forward;
+          runtimeAgs.ReferenceUpwards = ExternalFeedHasTarget && ExternalSourceUp.LengthSquared() > 0.001 ? Vector3D.Normalize(ExternalSourceUp) : RC.WorldMatrix.Up;
           runtimeAgs.TargetLock = HasTarget;
           runtimeAgs.Targetmode = "RDAR";
           runtimeAgs.Targetinfoline1 = ThisTracker.GetLine1Info();
