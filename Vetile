@@ -58,6 +58,8 @@ struct TargetPacket
     public Vector3D TargetPosition;
     public Vector3D TargetVelocity;
     public Vector3D SourcePosition;
+    public Vector3D SourceForward;
+    public Vector3D SourceUp;
     public long TargetId;
     public string SourceName;
     public double Timestamp;
@@ -188,7 +190,7 @@ public void Main(string argument, UpdateType updateSource)
         }
         else if (argument.Equals("source cycle", StringComparison.OrdinalIgnoreCase))
         {
-            targetSourceMode = targetSourceMode == TargetSourceMode.Local ? TargetSourceMode.Remote : TargetSourceMode.Local;
+            CycleSourceSelection();
         }
         else if (argument.Equals("remote list", StringComparison.OrdinalIgnoreCase))
         {
@@ -932,7 +934,10 @@ bool TryGetLocalPacket(out TargetPacket packet)
     packet.HasTarget = true;
     packet.TargetPosition = targetPosition;
     packet.TargetVelocity = targetVelocity;
-    packet.SourcePosition = Me.GetPosition();
+    var sourceBlock = navController != null ? (IMyTerminalBlock)navController : Me;
+    packet.SourcePosition = sourceBlock.GetPosition();
+    packet.SourceForward = sourceBlock.WorldMatrix.Forward;
+    packet.SourceUp = sourceBlock.WorldMatrix.Up;
     packet.TargetId = 0;
     packet.SourceName = "local";
     packet.Timestamp = elapsedSeconds;
@@ -957,7 +962,7 @@ bool TryGetSelectedRemotePacket(out TargetPacket packet)
         return false;
 
     packet = state.LastPacket;
-    return packet.HasTarget;
+    return true;
 }
 
 TargetPacket BuildNoTargetPacket()
@@ -967,6 +972,8 @@ TargetPacket BuildNoTargetPacket()
     packet.TargetPosition = Vector3D.Zero;
     packet.TargetVelocity = Vector3D.Zero;
     packet.SourcePosition = Me.GetPosition();
+    packet.SourceForward = Me.WorldMatrix.Forward;
+    packet.SourceUp = Me.WorldMatrix.Up;
     packet.TargetId = 0;
     packet.SourceName = targetSourceMode == TargetSourceMode.Remote ? GetSelectedRemoteNameOrDefault() : "local";
     packet.Timestamp = elapsedSeconds;
@@ -1006,6 +1013,30 @@ void SelectNextRemote()
     selectedRemoteIndex = (selectedRemoteIndex + 1) % remoteSourceOrder.Count;
 }
 
+void CycleSourceSelection()
+{
+    if (targetSourceMode == TargetSourceMode.Local)
+    {
+        targetSourceMode = TargetSourceMode.Remote;
+        if (remoteSourceOrder.Count > 0 && (selectedRemoteIndex < 0 || selectedRemoteIndex >= remoteSourceOrder.Count))
+            selectedRemoteIndex = 0;
+        return;
+    }
+
+    if (remoteSourceOrder.Count == 0)
+    {
+        targetSourceMode = TargetSourceMode.Local;
+        return;
+    }
+
+    selectedRemoteIndex++;
+    if (selectedRemoteIndex >= remoteSourceOrder.Count)
+    {
+        selectedRemoteIndex = 0;
+        targetSourceMode = TargetSourceMode.Local;
+    }
+}
+
 void SelectRemoteByName(string name)
 {
     if (string.IsNullOrWhiteSpace(name))
@@ -1023,7 +1054,7 @@ void SelectRemoteByName(string name)
 
 string EncodeTargetPacket(TargetPacket packet)
 {
-    return $"{TARGET_PACKET_HEADER}|{TARGET_PACKET_VERSION}|{(packet.HasTarget ? 1 : 0)}|{packet.TargetPosition.X:0.###}|{packet.TargetPosition.Y:0.###}|{packet.TargetPosition.Z:0.###}|{packet.TargetVelocity.X:0.###}|{packet.TargetVelocity.Y:0.###}|{packet.TargetVelocity.Z:0.###}|{packet.SourcePosition.X:0.###}|{packet.SourcePosition.Y:0.###}|{packet.SourcePosition.Z:0.###}|{packet.TargetId}|{packet.SourceName}|{packet.Timestamp:0.###}";
+    return $"{TARGET_PACKET_HEADER}|{TARGET_PACKET_VERSION}|{(packet.HasTarget ? 1 : 0)}|{packet.TargetPosition.X:0.###}|{packet.TargetPosition.Y:0.###}|{packet.TargetPosition.Z:0.###}|{packet.TargetVelocity.X:0.###}|{packet.TargetVelocity.Y:0.###}|{packet.TargetVelocity.Z:0.###}|{packet.SourcePosition.X:0.###}|{packet.SourcePosition.Y:0.###}|{packet.SourcePosition.Z:0.###}|{packet.TargetId}|{packet.SourceName}|{packet.Timestamp:0.###}|{packet.SourceForward.X:0.###}|{packet.SourceForward.Y:0.###}|{packet.SourceForward.Z:0.###}|{packet.SourceUp.X:0.###}|{packet.SourceUp.Y:0.###}|{packet.SourceUp.Z:0.###}";
 }
 
 bool TryParseTargetPacket(string payload, out TargetPacket packet)
@@ -1041,6 +1072,7 @@ bool TryParseTargetPacket(string payload, out TargetPacket packet)
     packet.HasTarget = hasTargetInt == 1;
 
     double x, y, z, vx, vy, vz, sx, sy, sz, timestamp;
+    double sfx = 0, sfy = 0, sfz = 1, sux = 0, suy = 1, suz = 0;
     long targetId;
     if (!double.TryParse(parts[3], out x)) return false;
     if (!double.TryParse(parts[4], out y)) return false;
@@ -1053,10 +1085,21 @@ bool TryParseTargetPacket(string payload, out TargetPacket packet)
     if (!double.TryParse(parts[11], out sz)) return false;
     if (!long.TryParse(parts[12], out targetId)) targetId = 0;
     if (!double.TryParse(parts[14], out timestamp)) timestamp = elapsedSeconds;
+    if (parts.Length >= 21)
+    {
+        double.TryParse(parts[15], out sfx);
+        double.TryParse(parts[16], out sfy);
+        double.TryParse(parts[17], out sfz);
+        double.TryParse(parts[18], out sux);
+        double.TryParse(parts[19], out suy);
+        double.TryParse(parts[20], out suz);
+    }
 
     packet.TargetPosition = new Vector3D(x, y, z);
     packet.TargetVelocity = new Vector3D(vx, vy, vz);
     packet.SourcePosition = new Vector3D(sx, sy, sz);
+    packet.SourceForward = new Vector3D(sfx, sfy, sfz);
+    packet.SourceUp = new Vector3D(sux, suy, suz);
     packet.TargetId = targetId;
     packet.SourceName = parts[13];
     packet.Timestamp = timestamp;
@@ -1128,6 +1171,7 @@ void EchoSummary()
 {
     Echo("Rotor Projection Finisher (Multi-Tag)");
     Echo($"Target feed: {targetSourceMode} | source={activeTargetPacket.SourceName} | id={(activeTargetPacket.HasTarget ? activeTargetPacket.TargetId.ToString() : RDAV_STATUS_NONE)} | dist={(activeTargetDistanceMeters >= 0 ? activeTargetDistanceMeters.ToString("0") + "m" : "-")}");
+    Echo($"Remote selection: {(remoteSourceOrder.Count > 0 ? GetSelectedRemoteNameOrDefault() : "none")} ({remoteSourceOrder.Count} known)");
 
     for (int i = 0; i < TAGS.Length; i++)
     {
